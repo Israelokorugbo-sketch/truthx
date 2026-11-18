@@ -1,0 +1,45 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: sovereign
+      POSTGRES_USER: sovereign
+      POSTGRES_PASSWORD: sovereignpass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://sovereign:sovereignpass@db:5432/sovereign
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: change-this-in-prod-super-secret
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    command: celery -A backend.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      DATABASE_URL: postgresql://sovereign:sovereignpass@db:5432/sovereign
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+
+volumes:
+  pgdata:
